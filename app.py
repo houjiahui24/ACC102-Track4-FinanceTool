@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
-# ---------------------- 页面标题 ----------------------
-st.title("🏦 ACC102 Interactive Financial Ratio Analyzer")
-st.subheader("Gree | Midea | Haier (2018–2024)")
+# ====================== 标题 ======================
+st.title("🏦 ACC102 Interactive Financial Analysis Tool")
+st.subheader("Gree | Midea | Haier 2018–2024")
+st.caption("Data Source: Yahoo Finance & WRDS | Accessed: 21 April 2026")
 
-# ---------------------- 数据定义 ----------------------
+# ====================== 财务数据 ======================
 data = {
     "Year": [2018,2019,2020,2021,2022,2023,2024],
     "Gree_ROE": [22.5,22.2,19.1,21.2,22.6,22.7,22.9],
@@ -24,63 +26,109 @@ data = {
 }
 df = pd.DataFrame(data)
 
-# ---------------------- 交互控制面板 ----------------------
-st.sidebar.header("🔧 Control Panel")
+# ====================== 交互控制面板 ======================
+st.sidebar.header("🔧 Interactive Control Panel")
 
-# 1. 选择公司
-selected_companies = st.sidebar.multiselect(
-    "Select Companies to View",
-    ["Gree", "Midea", "Haier"],
-    default=["Gree", "Midea", "Haier"]
+# 选择公司
+companies = st.sidebar.multiselect(
+    "Choose Companies",
+    ["Gree","Midea","Haier"],
+    default=["Gree","Midea","Haier"]
 )
 
-# 2. 选择财务指标
-selected_ratio = st.sidebar.selectbox(
-    "Select Financial Ratio",
-    ["ROE (Return on Equity)", "Profit Margin", "Asset Turnover", "Leverage"]
+# 选择指标
+indicator = st.sidebar.selectbox(
+    "Choose Financial Indicator",
+    ["ROE","Profit Margin","Asset Turnover","Leverage"]
 )
 
-# 3. 选择年份范围
-year_min, year_max = st.sidebar.slider(
-    "Select Year Range",
-    min_value=2018, max_value=2024, value=(2018, 2024)
+# 选择年份
+year_range = st.sidebar.slider(
+    "Year Range",
+    2018,2024,(2018,2024)
 )
 
-# ---------------------- 数据映射与过滤 ----------------------
-# 指标和对应列的映射
-ratio_map = {
-    "ROE (Return on Equity)": {"Gree": "Gree_ROE", "Midea": "Midea_ROE", "Haier": "Haier_ROE"},
-    "Profit Margin": {"Gree": "Gree_PM", "Midea": "Midea_PM", "Haier": "Haier_PM"},
-    "Asset Turnover": {"Gree": "Gree_TO", "Midea": "Midea_TO", "Haier": "Haier_TO"},
-    "Leverage": {"Gree": "Gree_LEV", "Midea": "Midea_LEV", "Haier": "Haier_LEV"}
+# 过滤数据
+start_year, end_year = year_range
+df_filter = df[(df.Year >= start_year) & (df.Year <= end_year)]
+
+# 指标映射
+col_map = {
+    "ROE": {"Gree":"Gree_ROE","Midea":"Midea_ROE","Haier":"Haier_ROE"},
+    "Profit Margin": {"Gree":"Gree_PM","Midea":"Midea_PM","Haier":"Haier_PM"},
+    "Asset Turnover": {"Gree":"Gree_TO","Midea":"Midea_TO","Haier":"Haier_TO"},
+    "Leverage": {"Gree":"Gree_LEV","Midea":"Midea_LEV","Haier":"Haier_LEV"}
 }
-# 过滤年份
-filtered_df = df[(df["Year"] >= year_min) & (df["Year"] <= year_max)]
 
-# ---------------------- 展示数据表格 ----------------------
-st.subheader("📊 Full Financial Data Table")
-st.dataframe(filtered_df)
+# ====================== 图1：数据总表 ======================
+st.subheader("📋 Full Financial Data")
+st.dataframe(df_filter, use_container_width=True)
 
-# ---------------------- 画趋势图 ----------------------
-st.subheader(f"📈 {selected_ratio} Trend")
-fig, ax = plt.subplots(figsize=(10, 6))
+# ====================== 图2：趋势图 ======================
+st.subheader(f"📈 {indicator} Trend Comparison")
+fig1, ax1 = plt.subplots(figsize=(10,5))
+for c in companies:
+    ax1.plot(df_filter.Year, df_filter[col_map[indicator][c]], marker='o', linewidth=2, label=c)
+ax1.legend()
+ax1.grid(alpha=0.3)
+st.pyplot(fig1)
 
-# 根据选中的公司和指标画图
-for company in selected_companies:
-    col = ratio_map[selected_ratio][company]
-    ax.plot(filtered_df["Year"], filtered_df[col], marker='o', label=company)
+# ====================== 图3：杜邦分析（单公司） ======================
+if len(companies) == 1:
+    c = companies[0]
+    st.subheader(f"🔍 DuPont Analysis — {c}")
+    fig2, ax2 = plt.subplots(figsize=(10,5))
+    ax2.plot(df_filter.Year, df_filter[f"{c}_PM"], marker='s', label="Profit Margin")
+    ax2.plot(df_filter.Year, df_filter[f"{c}_TO"], marker='^', label="Asset Turnover")
+    ax2.plot(df_filter.Year, df_filter[f"{c}_LEV"], marker='*', label="Leverage")
+    ax2.legend()
+    ax2.grid(alpha=0.3)
+    st.pyplot(fig2)
 
-ax.set_title(f"{selected_ratio} Comparison ({year_min}-{year_max})")
-ax.set_xlabel("Year")
-ax.set_ylabel(selected_ratio)
-ax.legend()
-ax.grid(True)
-st.pyplot(fig)
+# ====================== 图4：2024柱状对比 ======================
+st.subheader("📊 2024 Key Indicators Bar Chart")
+df2024 = df[df.Year == 2024].iloc[0]
+names = ["Gree","Midea","Haier"]
+roe   = [df2024.Gree_ROE, df2024.Midea_ROE, df2024.Haier_ROE]
+pm    = [df2024.Gree_PM, df2024.Midea_PM, df2024.Haier_PM]
+to    = [df2024.Gree_TO, df2024.Midea_TO, df2024.Haier_TO]
+lev   = [df2024.Gree_LEV, df2024.Midea_LEV, df2024.Haier_LEV]
 
-# ---------------------- 关键结论 ----------------------
+fig3, ((ax3a, ax3b), (ax3c, ax3d)) = plt.subplots(2,2,figsize=(12,8))
+ax3a.bar(names, roe, color=['blue','orange','green']); ax3a.set_title("ROE")
+ax3b.bar(names, pm, color=['blue','orange','green']); ax3b.set_title("Profit Margin")
+ax3c.bar(names, to, color=['blue','orange','green']); ax3c.set_title("Asset Turnover")
+ax3d.bar(names, lev, color=['blue','orange','green']); ax3d.set_title("Leverage")
+st.pyplot(fig3)
+
+# ====================== 图5：雷达图 ======================
+st.subheader("🎯 2024 Financial Ability Radar Chart")
+fig4 = plt.figure(figsize=(6,6))
+ax4 = fig4.add_subplot(111, polar=True)
+labels = ["ROE","Profit Margin","Asset Turnover","Leverage"]
+angles = np.linspace(0, 2*np.pi, 4, endpoint=False).tolist()
+angles += angles[:1]
+
+for c in companies:
+    vals = [
+        df2024[col_map["ROE"][c]] / 25,
+        df2024[col_map["Profit Margin"][c]] / 20,
+        df2024[col_map["Asset Turnover"][c]] / 120,
+        df2024[col_map["Leverage"][c]] / 4
+    ]
+    vals += vals[:1]
+    ax4.plot(angles, vals, linewidth=2, label=c)
+    ax4.fill(angles, vals, alpha=0.1)
+ax4.set_xticks(angles[:-1])
+ax4.set_xticklabels(labels)
+ax4.legend(loc="upper right")
+st.pyplot(fig4)
+
+# ====================== 结论 ======================
 st.subheader("💡 Key Insights")
 st.markdown("""
-- **Midea**: Strongest overall ROE, though slightly declining. Highest asset efficiency.
-- **Gree**: Most stable profit margin with significant improvement in 2024.
-- **Haier**: Steady performance at lower profitability levels, but highest asset turnover.
+- **Midea**: Highest ROE overall, but shows a slight long-term decline.
+- **Gree**: Strongest profit margin and improved significantly in 2024.
+- **Haier**: Highest asset turnover but relatively lower profitability.
+- All three companies maintain stable and safe leverage levels.
 """)
