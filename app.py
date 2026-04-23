@@ -8,18 +8,17 @@ st.set_page_config(page_title="ACC102 Project", layout="wide")
 st.title("ACC102 Financial Analysis Dashboard")
 st.caption("Data from WRDS Compustat 2020-2024")
 
+# 读取WRDS数据
 df = pd.read_csv("wrds_data.csv")
-
-# 🔥 修复 1：把年份转成整数，避免出错
 df["fyear"] = df["fyear"].astype(int)
 
-# 🔥 修复 2：计算你要用的 4 个指标
+# 计算四大财务指标（适配你的WRDS字段）
 df['roe'] = df['ni'] / df['ceq']
 df['roa'] = df['ni'] / df['at']
 df['pm'] = df['ni'] / df['sale']
 df['lev'] = df['at'] / df['ceq']
 
-# ===================== 你原版的所有交互 100% 保留 =====================
+# ===================== 完全保留你原版侧边栏所有交互 =====================
 st.sidebar.header("Settings")
 
 comps = st.sidebar.multiselect(
@@ -49,7 +48,7 @@ y_var = st.sidebar.selectbox("Y Variable", ["roe", "roa", "pm", "lev", "sale"])
 # Single year comparison
 selected_year = st.sidebar.selectbox("Single Year Comparison", [2020,2021,2022,2023,2024])
 
-# ===================== 🔥 核心修复：把 year 改成 fyear =====================
+# ===================== 修复：year 改成 fyear =====================
 df_filtered = df[
     (df["tic"].isin(comps)) &
     (df["fyear"] >= y1) &
@@ -61,16 +60,14 @@ if show_table:
     st.subheader("Data")
     st.dataframe(df_filtered.round(decimals))
 
-# Main trend chart
+# ---------------------- 1. 折线图 Trend ----------------------
 st.subheader(f"Trend: {metric.upper()}")
 fig1, ax1 = plt.subplots(figsize=(chart_width, 4))
 
-# 绘制折线图（四家公司都显示）
 for company in comps:
     c_data = df_filtered[df_filtered["tic"] == company].sort_values("fyear")
     ax1.plot(c_data["fyear"], c_data[metric], marker='o', label=company)
 
-# 显示均值线
 if show_avg:
     avg_data = df_filtered.groupby("fyear")[metric].mean()
     ax1.plot(avg_data.index, avg_data, 'k--', label='Average', linewidth=2)
@@ -81,11 +78,11 @@ ax1.legend()
 ax1.grid(alpha=0.3)
 st.pyplot(fig1)
 
-# 你要的散点图
-st.subheader(f"Scatter: {x_var.upper()} vs {y_var.upper()}")
+# ---------------------- 2. 散点图 Scatter ----------------------
+st.subheader(f"Scatter Plot: {x_var.upper()} vs {y_var.upper()}")
 fig2, ax2 = plt.subplots(figsize=(chart_width, 4))
 for company in comps:
-    c_data = df_filtered[df_filtered["tic"] == company]
+    c_data = df_filtered[df_filtered["fyear"] == company]
     ax2.scatter(c_data[x_var], c_data[y_var], label=company, s=60)
 ax2.set_xlabel(x_var.upper())
 ax2.set_ylabel(y_var.upper())
@@ -93,7 +90,7 @@ ax2.legend()
 ax2.grid(alpha=0.3)
 st.pyplot(fig2)
 
-# 单年份柱状对比
+# ---------------------- 3. 柱状图 Bar ----------------------
 st.subheader(f"Bar Comparison in {selected_year}")
 year_data = df_filtered[df_filtered["fyear"] == selected_year]
 if not year_data.empty:
@@ -104,3 +101,31 @@ if not year_data.empty:
     st.pyplot(fig3)
 else:
     st.info("No data for selected year.")
+
+# ---------------------- 4. 新增：雷达图 Radar Chart ----------------------
+st.subheader("Radar Chart – Financial Performance Comparison")
+# 取各公司均值
+radar_df = df_filtered.groupby("tic")[["roe","roa","pm","lev"]].mean().reset_index()
+
+# 雷达图指标标签
+labels = ['ROE', 'ROA', 'Profit Margin', 'Leverage']
+num_vars = len(labels)
+
+# 角度均分
+angles = [n / float(num_vars) * 2 * pi for n in range(num_vars)]
+angles += angles[:1]
+
+fig4 = plt.figure(figsize=(7, 7))
+ax4 = fig4.add_subplot(111, polar=True)
+
+# 每家公司画一条雷达线
+for _, row in radar_df.iterrows():
+    values = [row["roe"], row["roa"], row["pm"], row["lev"]]
+    values += values[:1]
+    ax4.plot(angles, values, marker='o', label=row["tic"])
+    ax4.fill(angles, values, alpha=0.1)
+
+ax4.set_xticks(angles[:-1])
+ax4.set_xticklabels(labels)
+ax4.legend(loc="upper right", bbox_to_anchor=(1.2, 1.1))
+st.pyplot(fig4)
