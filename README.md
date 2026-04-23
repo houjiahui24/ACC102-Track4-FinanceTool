@@ -43,4 +43,3 @@ The project includes four professional financial charts:
 3. **Bar Chart**: Compare annual revenue of four companies year by year
 4. **Radar Chart**: Evaluate overall comprehensive financial performance of each company
 
-## File Structure
