@@ -1,15 +1,13 @@
- import streamlit as st
+import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from math import pi
 
-# 页面设置
 st.set_page_config(page_title="ACC102 High Score Dashboard", layout="wide")
 st.title("🏆 ACC102 Track4: Interactive Financial Dashboard")
 st.caption("✅ Data Source: WRDS Compustat | 4 Companies | 5 Charts | Rich Interaction")
 
-# 读取数据
 df = pd.read_csv("wrds_data.csv")
 
 # ======================
@@ -104,7 +102,7 @@ if show_lev:
     st.area_chart(lev_pivot)
 
 # ======================
-# 图5：雷达图（高分关键）
+# 图5：雷达图
 # ======================
 st.subheader("5. Financial Radar Chart (Latest Year)")
 latest = df[df["year"] == df["year"].max()].copy()
