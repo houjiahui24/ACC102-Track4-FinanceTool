@@ -18,7 +18,7 @@ df['roa'] = df['ni'] / df['at']
 df['pm'] = df['ni'] / df['sale']
 df['lev'] = df['at'] / df['ceq']
 
-# ===================== 完全保留你原版侧边栏所有交互 =====================
+# ===================== 侧边栏交互 =====================
 st.sidebar.header("Settings")
 
 comps = st.sidebar.multiselect(
@@ -48,7 +48,7 @@ y_var = st.sidebar.selectbox("Y Variable", ["roe", "roa", "pm", "lev", "sale"])
 # Single year comparison
 selected_year = st.sidebar.selectbox("Single Year Comparison", [2020,2021,2022,2023,2024])
 
-# ===================== 修复：year 改成 fyear =====================
+# ===================== 数据筛选 =====================
 df_filtered = df[
     (df["tic"].isin(comps)) &
     (df["fyear"] >= y1) &
@@ -78,11 +78,12 @@ ax1.legend()
 ax1.grid(alpha=0.3)
 st.pyplot(fig1)
 
-# ---------------------- 2. 散点图 Scatter ----------------------
+# ---------------------- 2. 散点图 Scatter（已修复） ----------------------
 st.subheader(f"Scatter Plot: {x_var.upper()} vs {y_var.upper()}")
 fig2, ax2 = plt.subplots(figsize=(chart_width, 4))
 for company in comps:
-    c_data = df_filtered[df_filtered["fyear"] == company]
+    # 修复点：按公司代码筛选数据
+    c_data = df_filtered[df_filtered["tic"] == company]
     ax2.scatter(c_data[x_var], c_data[y_var], label=company, s=60)
 ax2.set_xlabel(x_var.upper())
 ax2.set_ylabel(y_var.upper())
@@ -102,7 +103,7 @@ if not year_data.empty:
 else:
     st.info("No data for selected year.")
 
-# ---------------------- 4. 新增：雷达图 Radar Chart ----------------------
+# ---------------------- 4. 雷达图 Radar Chart ----------------------
 st.subheader("Radar Chart – Financial Performance Comparison")
 # 取各公司均值
 radar_df = df_filtered.groupby("tic")[["roe","roa","pm","lev"]].mean().reset_index()
