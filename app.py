@@ -3,17 +3,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+# 全局设置
 plt.rcParams['font.sans-serif'] = ['Arial']
 plt.rcParams['axes.unicode_minus'] = False
-
 st.set_page_config(page_title="ACC102 Financial Dashboard", layout="wide")
+
+# 标题
 st.title("ACC102 Financial Analysis Dashboard")
 st.caption("Data Source: WRDS Compustat | Period: 2020-2024")
 
+# 加载WRDS数据
 @st.cache_data
 def load_data():
     df = pd.read_csv("wrds_data.csv")
     df["fyear"] = df["fyear"].astype(int)
+    # 计算四大财务指标
     df['roe'] = df['ni'] / df['ceq']
     df['roa'] = df['ni'] / df['at']
     df['pm'] = df['ni'] / df['sale']
@@ -21,19 +25,21 @@ def load_data():
     return df
 
 df = load_data()
-all_companies = sorted(df["tic"].unique())
 
-# ---------------------- Sidebar Interaction (No Auto Filter, Keep All Companies) ----------------------
-st.sidebar.header("Settings & Data Comparison")
+# 所有公司列表，默认全部选中
+all_tics = df["tic"].unique()
 
-# Select Companies —— 默认全部选中，不会少公司
-selected_companies = st.sidebar.multiselect(
+# ---------------------- 侧边栏交互 ----------------------
+st.sidebar.header("Dashboard Settings")
+
+# 公司选择：默认全选
+selected_firms = st.sidebar.multiselect(
     "Select Companies",
-    options=all_companies,
-    default=all_companies
+    options=all_tics,
+    default=all_tics
 )
 
-# Year Range
+# 年份范围
 min_y = int(df["fyear"].min())
 max_y = int(df["fyear"].max())
 start_year, end_year = st.sidebar.slider(
@@ -43,74 +49,48 @@ start_year, end_year = st.sidebar.slider(
     value=(min_y, max_y)
 )
 
-# Main Metric
-choose_metric = st.sidebar.selectbox(
-    "Select Main Analysis Metric",
+# 选择主指标
+main_metric = st.sidebar.selectbox(
+    "Select Main Metric",
     options=["roe", "roa", "pm", "lev"]
 )
 
-# Two Companies Comparison
-st.sidebar.divider()
-st.sidebar.subheader("Two Companies Comparison")
-comp1 = st.sidebar.selectbox("Company A", all_companies, index=0)
-comp2 = st.sidebar.selectbox("Company B", all_companies, index=1)
+# 图表设置
+show_grid = st.sidebar.checkbox("Show Grid", value=True)
+decimal_places = st.sidebar.slider("Decimal Places", 1, 4, 3)
 
-# Display Style
-st.sidebar.divider()
-show_grid = st.sidebar.checkbox("Show Grid in Charts", value=True)
-fig_size_choice = st.sidebar.radio("Chart Size", ["Small", "Standard", "Large"], index=1)
-decimal_digits = st.sidebar.slider("Decimal Places", 1, 4, 3)
-show_table = st.sidebar.checkbox("Show Raw Data Table", value=True)
-show_stats = st.sidebar.checkbox("Show Statistics Summary", value=True)
-
-# ---------------------- Data Filtering (Only Year & Company, No Extra Filter) ----------------------
-filtered_df = df[
-    (df["tic"].isin(selected_companies)) &
-    df["fyear"].between(start_year, end_year)
+# ---------------------- 只做正常筛选，不加任何乱过滤 ----------------------
+df_filtered = df[
+    (df["tic"].isin(selected_firms)) &
+    (df["fyear"] >= start_year) &
+    (df["fyear"] <= end_year)
 ]
 
-size_map = {"Small":(8,4), "Standard":(10,5), "Large":(12,6)}
-fig_w, fig_h = size_map[fig_size_choice]
+# ---------------------- 数据表格 & 统计 ----------------------
+st.subheader("Filtered Data Table")
+st.dataframe(df_filtered.round(decimal_places), use_container_width=True)
 
-# ---------------------- Comparison Panel ----------------------
-st.subheader("Average Metric Comparison Panel")
-comp_avg = filtered_df.groupby("tic")[["roe","roa","pm","lev"]].mean().round(decimal_digits)
-st.dataframe(comp_avg, use_container_width=True)
+st.subheader("Descriptive Statistics")
+st.write(df_filtered[["roe","roa","pm","lev"]].describe().round(decimal_places))
 
-st.subheader("Direct Company Comparison: {} vs {}".format(comp1, comp2))
-c1_data = df[(df["tic"]==comp1) & df["fyear"].between(start_year, end_year)]
-c2_data = df[(df["tic"]==comp2) & df["fyear"].between(start_year, end_year)]
-
-st.write(f"{comp1} Average {choose_metric.upper()}: {c1_data[choose_metric].mean():.{decimal_digits}f}")
-st.write(f"{comp2} Average {choose_metric.upper()}: {c2_data[choose_metric].mean():.{decimal_digits}f}")
-
-# ---------------------- Data Table & Stats ----------------------
-if show_table:
-    st.subheader("Filtered Raw Data Table")
-    st.dataframe(filtered_df.round(decimal_digits), use_container_width=True)
-
-if show_stats:
-    st.subheader("Descriptive Statistics Summary")
-    st.write(filtered_df[["roe","roa","pm","lev"]].describe().round(decimal_digits))
-
-# ---------------------- 1. Line Chart ----------------------
+# ---------------------- 1. 折线图 四家对比 ----------------------
 st.subheader("1. Line Chart – Financial Metric Trend")
-fig1, ax1 = plt.subplots(figsize=(fig_w, fig_h))
-for tic in filtered_df["tic"].unique():
-    d = filtered_df[filtered_df["tic"] == tic].sort_values("fyear")
-    ax1.plot(d["fyear"], d[choose_metric], marker='o', linewidth=2, label=tic)
+fig1, ax1 = plt.subplots(figsize=(10,5))
+for firm in selected_firms:
+    data = df_filtered[df_filtered["tic"]==firm].sort_values("fyear")
+    ax1.plot(data["fyear"], data[main_metric], marker='o', linewidth=2, label=firm)
 ax1.set_xlabel("Year")
-ax1.set_ylabel(choose_metric.upper())
+ax1.set_ylabel(main_metric.upper())
 ax1.legend()
 if show_grid:
     ax1.grid(alpha=0.3)
 st.pyplot(fig1)
 
-# ---------------------- 2. Bar Chart ----------------------
-st.subheader("2. Bar Chart – Annual Revenue Comparison")
-fig2, ax2 = plt.subplots(figsize=(fig_w, fig_h))
-pivot_sale = filtered_df.pivot(index="fyear", columns="tic", values="sale")
-pivot_sale.plot(kind="bar", ax=ax2)
+# ---------------------- 2. 柱状图 营收对比 四家 ----------------------
+st.subheader("2. Bar Chart – Annual Revenue")
+fig2, ax2 = plt.subplots(figsize=(10,5))
+pivot_rev = df_filtered.pivot(index="fyear", columns="tic", values="sale")
+pivot_rev.plot(kind="bar", ax=ax2)
 ax2.set_xlabel("Year")
 ax2.set_ylabel("Revenue")
 ax2.legend(title="Company")
@@ -118,12 +98,12 @@ if show_grid:
     ax2.grid(alpha=0.3)
 st.pyplot(fig2)
 
-# ---------------------- 3. Scatter Plot ----------------------
+# ---------------------- 3. 散点图 ROA vs PM 四家 ----------------------
 st.subheader("3. Scatter Plot – ROA vs Profit Margin")
-fig3, ax3 = plt.subplots(figsize=(fig_w, fig_h))
-for tic in filtered_df["tic"].unique():
-    d = filtered_df[filtered_df["tic"] == tic]
-    ax3.scatter(d["roa"], d["pm"], s=80, label=tic)
+fig3, ax3 = plt.subplots(figsize=(10,5))
+for firm in selected_firms:
+    data = df_filtered[df_filtered["tic"]==firm]
+    ax3.scatter(data["roa"], data["pm"], s=80, label=firm)
 ax3.set_xlabel("ROA")
 ax3.set_ylabel("Profit Margin")
 ax3.legend()
@@ -131,24 +111,24 @@ if show_grid:
     ax3.grid(alpha=0.3)
 st.pyplot(fig3)
 
-# ---------------------- 4. Radar Chart ----------------------
+# ---------------------- 4. 雷达图 四家综合对比 ----------------------
 st.subheader("4. Radar Chart – Overall Financial Performance")
-mean_df = filtered_df.groupby("tic")[["roe","roa","pm","lev"]].mean().reset_index()
+radar_df = df_filtered.groupby("tic")[["roe","roa","pm","lev"]].mean().reset_index()
 
-labels = ['ROE','ROA','Profit Margin','Leverage']
-angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+labels = ["ROE","ROA","Profit Margin","Leverage"]
+angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist()
 angles += angles[:1]
 
 fig4 = plt.figure(figsize=(7,7))
 ax4 = fig4.add_subplot(111, polar=True)
 
-for _, row in mean_df.iterrows():
-    values = [row["roe"], row["roa"], row["pm"], row["lev"]]
-    values += values[:1)
-    ax4.plot(angles, values, marker='o', label=row["tic"])
-    ax4.fill(angles, values, alpha=0.1)
+for _, row in radar_df.iterrows():
+    vals = [row["roe"], row["roa"], row["pm"], row["lev"]]
+    vals += vals[:1]
+    ax4.plot(angles, vals, marker='o', label=row["tic"])
+    ax4.fill(angles, vals, alpha=0.1)
 
 ax4.set_xticks(angles[:-1])
 ax4.set_xticklabels(labels)
-ax4.legend(loc="upper right", bbox_to_anchor=(1.25,1.1))
+ax4.legend(loc="upper right", bbox_to_anchor=(1.2,1.1))
 st.pyplot(fig4)
