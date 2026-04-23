@@ -24,7 +24,7 @@ This project helps investors and business students analyse the profitability of 
 The tool is deployed on Streamlit Community Cloud.
 
 ### 6. Tool Link
-[Paste your Streamlit link here after deployment]
+ your Streamlit link here after deployment
 
 ### 7. Limitations
 Only 3 companies are included, and no macroeconomic factors are considered. Future work could expand the dataset and add more financial ratios.
