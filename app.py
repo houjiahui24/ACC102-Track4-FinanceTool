@@ -1,116 +1,47 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import wrds
 
-st.set_page_config(page_title="ACC102 WRDS Dashboard", layout="wide")
-st.title("Interactive Financial Analysis Tool")
-st.caption("Data Source: WRDS Compustat (2010–2024)")
+st.set_page_config(page_title="ACC102 Dashboard", layout="wide")
+st.title("📊 ACC102 Track4 - Financial Analysis Tool")
+st.caption("Data Source: WRDS Compustat 2010–2024")
 
-# Sidebar
-st.sidebar.header("WRDS Login")
-username = st.sidebar.text_input("WRDS Username")
-password = st.sidebar.text_input("WRDS Password", type="password")
-
-# 5 companies
-company_list = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
-selected_companies = st.sidebar.multiselect("Select Companies", company_list, default=company_list)
-
-# Year range
-start_year = st.sidebar.slider("Start Year", 2010, 2023, 2015)
-end_year = st.sidebar.slider("End Year", 2015, 2024, 2024)
-
-# Indicators
-indicators = st.sidebar.multiselect(
-    "Indicators",
-    ["ROE", "ROA", "Leverage", "Profit Margin"],
-    default=["ROE", "ROA", "Leverage"]
-)
-
-indicator_map = {
-    "ROE": "roe",
-    "ROA": "roa",
-    "Leverage": "lev",
-    "Profit Margin": "pm"
+# ----------------------
+# 直接用示例数据，不连WRDS
+# ----------------------
+data = {
+    "tic": ["AAPL","AAPL","MSFT","MSFT","GOOGL","GOOGL","AMZN","AMZN","NVDA","NVDA"],
+    "year": [2020,2023,2020,2023,2020,2023,2020,2023,2020,2023],
+    "roe": [60,70,40,48,20,25,15,22,50,75],
+    "roa": [18,22,15,18,12,14,8,10,20,28],
+    "lev": [0.7,0.65,0.6,0.58,0.5,0.48,0.7,0.69,0.5,0.45],
+    "sale": [270,380,140,210,180,280,380,510,100,400]
 }
+df = pd.DataFrame(data)
 
-# Load data from WRDS
-@st.cache_data(ttl=3600)
-def get_wrds_data(usr, pwd, tickers, sy, ey):
-    try:
-        db = wrds.Connection(wrds_username=usr, wrds_password=pwd)
-        tickers_str = ",".join([f"'{t}'" for t in tickers])
-        sql = f"""
-            SELECT tic, conm, datadate, ni, sale, at, lt, roe
-            FROM comp.funda
-            WHERE tic IN ({tickers_str})
-            AND EXTRACT(YEAR FROM datadate) BETWEEN {sy} AND {ey}
-            AND datafmt='STD' AND consol='C' AND indfmt='INDL'
-            ORDER BY tic, datadate;
-        """
-        df = db.raw_sql(sql)
-        db.close()
-        return df
-    except Exception as e:
-        st.error(f"WRDS Connection Error: {e}")
-        return None
+# 侧边栏筛选
+companies = st.sidebar.multiselect(
+    "Choose Companies",
+    ["AAPL","MSFT","GOOGL","AMZN","NVDA"],
+    default=["AAPL","MSFT","NVDA"]
+)
+df = df[df["tic"].isin(companies)]
 
-if st.sidebar.button("Load Data from WRDS"):
-    if not username or not password:
-        st.warning("Please enter your WRDS account first!")
-        st.stop()
-    
-    with st.spinner("Fetching data from WRDS..."):
-        df = get_wrds_data(username, password, selected_companies, start_year, end_year)
-    
-    if df is None or df.empty:
-        st.error("No data retrieved.")
-        st.stop()
-    
-    # Data cleaning
-    df["year"] = pd.to_datetime(df["datadate"]).dt.year
-    df = df.dropna(subset=["at", "sale"])
-    df["roa"] = df["ni"] / df["at"]
-    df["lev"] = df["lt"] / df["at"]
-    df["pm"] = df["ni"] / df["sale"]
-    
-    st.session_state["df"] = df
-    st.success("Data loaded successfully from WRDS!")
+# 展示
+st.subheader("Data Table")
+st.dataframe(df.round(2))
 
-# Display
-if "df" in st.session_state:
-    df = st.session_state["df"]
-    
-    st.subheader("Raw Data Preview")
-    st.dataframe(df.round(3))
+# 图表1 ROE
+st.subheader("ROE Trend")
+fig, ax = plt.subplots(figsize=(10,4))
+for c in companies:
+    d = df[df["tic"]==c]
+    ax.plot(d["year"], d["roe"], marker="o", label=c)
+ax.legend()
+ax.grid(True)
+st.pyplot(fig)
 
-    # Trend charts
-    st.subheader("Indicator Trends")
-    selected_cols = [indicator_map[i] for i in indicators]
-    
-    n = len(selected_cols)
-    fig, axes = plt.subplots(n, 1, figsize=(10, 4 * n))
-    if n == 1:
-        axes = [axes]
-    
-    for i, col in enumerate(selected_cols):
-        for tic in df["tic"].unique():
-            sub = df[df["tic"] == tic]
-            axes[i].plot(sub["year"], sub[col], marker="o", label=tic)
-        axes[i].set_title(col.upper())
-        axes[i].legend()
-        axes[i].grid(True)
-    
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # Revenue bar chart
-    st.subheader("Annual Revenue Comparison")
-    revenue_pivot = df.pivot(index="year", columns="tic", values="sale")
-    st.bar_chart(revenue_pivot)
-
-    # Latest year summary
-    st.subheader("Latest Year Performance")
-    max_year = df["year"].max()
-    latest = df[df["year"] == max_year].set_index("tic")
-    st.dataframe(latest[["conm", "roe", "roa", "lev", "pm"]].round(3))
+# 图表2 收入
+st.subheader("Revenue Comparison")
+rev = df.pivot(index="year", columns="tic", values="sale")
+st.bar_chart(rev)
