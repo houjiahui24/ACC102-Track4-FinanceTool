@@ -1,30 +1,26 @@
-# ACC102 Mini Assignment - Track4
-## Financial Ratio Analyzer (Interactive Tool)
+# ACC102 Track4: Interactive Financial Dashboard
+## Project Overview
+This is an interactive data analysis tool built with Streamlit and WRDS data. It helps users compare corporate financial performance.
 
-### 1. Problem & User
-This project helps investors and business students analyse the profitability of listed companies using ROE (Return on Equity).
+## Data Source
+- Database: WRDS Compustat
+- Access Date: 2026-04-23
+- Companies: AAPL, MSFT, GOOGL, AMZN, NVDA
+- Period: 2010–2024
 
-### 2. Data
-- Source: Yahoo Finance & WRDS
-- Access date: 2026-04-21
-- Period: 2018–2024
-- Companies: Gree, Midea, Haier
+## Methods
+- Data extraction via WRDS Python API
+- Data cleaning and ratio calculation
+- Interactive visualization: ROE, ROA, Leverage, Profit Margin
 
-### 3. Methods
-- Data collection and cleaning
-- Trend analysis and visualization
-- Interactive dashboard with Streamlit
+## How to Run
+1. Install dependencies: pip install -r requirements.txt
+2. Run: streamlit run app.py
+3. Input your WRDS username and password
 
-### 4. Key Findings
-- ✅ Midea has the highest and most stable ROE
-- ✅ Gree maintains strong profitability
-- ✅ Haier performs steadily but at a lower level
+## Product Link
+(Your Streamlit URL here)
 
-### 5. How to Run
-The tool is deployed on Streamlit Community Cloud.
-
-### 6. Tool Link
- your Streamlit link here after deployment
-
-### 7. Limitations
-Only 3 companies are included, and no macroeconomic factors are considered. Future work could expand the dataset and add more financial ratios.
+## Limitations
+- Requires WRDS account
+- Only annual data
