@@ -1,47 +1,86 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+from math import pi
 
-st.set_page_config(page_title="ACC102 Dashboard", layout="wide")
-st.title("📊 ACC102 Track4 - Financial Analysis Tool")
-st.caption("Data Source: WRDS Compustat 2010–2024")
+# 页面设置
+st.set_page_config(page_title="ACC102 High Score Dashboard", layout="wide")
+st.title("🏆 ACC102 Track4: Financial Performance Dashboard")
+st.caption("Data Source: WRDS Compustat (Real Data) | Companies: AAPL, MSFT, NVDA, GOOGL | 2020-2024")
 
-# ----------------------
-# 直接用示例数据，不连WRDS
-# ----------------------
-data = {
-    "tic": ["AAPL","AAPL","MSFT","MSFT","GOOGL","GOOGL","AMZN","AMZN","NVDA","NVDA"],
-    "year": [2020,2023,2020,2023,2020,2023,2020,2023,2020,2023],
-    "roe": [60,70,40,48,20,25,15,22,50,75],
-    "roa": [18,22,15,18,12,14,8,10,20,28],
-    "lev": [0.7,0.65,0.6,0.58,0.5,0.48,0.7,0.69,0.5,0.45],
-    "sale": [270,380,140,210,180,280,380,510,100,400]
-}
-df = pd.DataFrame(data)
+# 读取数据
+df = pd.read_csv("wrds_data.csv")
 
-# 侧边栏筛选
+# 侧边栏
+st.sidebar.header("Control Panel")
 companies = st.sidebar.multiselect(
-    "Choose Companies",
-    ["AAPL","MSFT","GOOGL","AMZN","NVDA"],
-    default=["AAPL","MSFT","NVDA"]
+    "Select Companies",
+    ["AAPL", "MSFT", "NVDA", "GOOGL"],
+    default=["AAPL", "MSFT", "NVDA", "GOOGL"]
 )
-df = df[df["tic"].isin(companies)]
 
-# 展示
-st.subheader("Data Table")
-st.dataframe(df.round(2))
+year_min, year_max = st.sidebar.slider("Year Range", 2020, 2024, (2020, 2024))
+df = df[(df["tic"].isin(companies)) & (df["year"] >= year_min) & (df["year"] <= year_max)]
 
-# 图表1 ROE
-st.subheader("ROE Trend")
-fig, ax = plt.subplots(figsize=(10,4))
-for c in companies:
-    d = df[df["tic"]==c]
-    ax.plot(d["year"], d["roe"], marker="o", label=c)
-ax.legend()
-ax.grid(True)
-st.pyplot(fig)
+# 数据预览
+st.subheader("📋 Data Preview")
+st.dataframe(df.round(3))
 
-# 图表2 收入
-st.subheader("Revenue Comparison")
-rev = df.pivot(index="year", columns="tic", values="sale")
-st.bar_chart(rev)
+# ---------------------- 图1 ROE 趋势 ----------------------
+st.subheader("1. ROE Trend")
+fig1, ax1 = plt.subplots(figsize=(9, 3.5))
+for tic in companies:
+    sub = df[df["tic"] == tic]
+    ax1.plot(sub["year"], sub["roe"], marker="o", label=tic)
+ax1.legend()
+ax1.grid(True)
+st.pyplot(fig1)
+
+# ---------------------- 图2 营收柱状图 ----------------------
+st.subheader("2. Annual Revenue Comparison")
+rev_pivot = df.pivot(index="year", columns="tic", values="sale")
+st.bar_chart(rev_pivot)
+
+# ---------------------- 图3 净利率 ----------------------
+st.subheader("3. Net Profit Margin Trend")
+fig3, ax3 = plt.subplots(figsize=(9, 3.5))
+for tic in companies:
+    sub = df[df["tic"] == tic]
+    ax3.plot(sub["year"], sub["pm"], marker="s", label=tic)
+ax3.legend()
+ax3.grid(True)
+st.pyplot(fig3)
+
+# ---------------------- 图4 杠杆率 ----------------------
+st.subheader("4. Leverage Level Trend")
+lev_pivot = df.pivot(index="year", columns="tic", values="lev")
+st.area_chart(lev_pivot)
+
+# ---------------------- 图5 雷达图 ----------------------
+st.subheader("5. Financial Radar Chart (Latest Year)")
+latest = df[df["year"] == df["year"].max()].copy()
+indicators = ["roe", "roa", "pm", "lev"]
+
+def radar(df_sub):
+    angles = [i / len(indicators) * 2 * pi for i in range(len(indicators))]
+    angles += angles[:1]
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw={"polar": True})
+    
+    for _, row in df_sub.iterrows():
+        values = row[indicators].tolist()
+        values += values[:1]
+        ax.plot(angles, values, linewidth=2, label=row["tic"])
+        ax.fill(angles, values, alpha=0.15)
+    
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(["ROE", "ROA", "Profit Margin", "Leverage"])
+    ax.legend(loc="upper right")
+    return fig
+
+if not latest.empty:
+    st.pyplot(radar(latest))
+else:
+    st.info("Please select a valid year to show radar chart")
+
+st.success("✅ All data from WRDS Compustat | Runs locally without password")
