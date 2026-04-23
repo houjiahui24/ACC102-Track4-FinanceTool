@@ -4,94 +4,71 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import pi
 
-st.set_page_config(page_title="ACC102 High Score Dashboard", layout="wide")
-st.title(" ACC102 Track4: Interactive Financial Dashboard")
-st.caption("Data Source: WRDS Compustat | 4 Companies | 5 Charts | Rich Interaction")
+# 设置页面
+st.set_page_config(page_title="ACC102 Project", layout="wide")
+st.title("ACC102 Financial Analysis Dashboard")
+st.caption("Data from WRDS Compustat (2020-2024)")
 
+# 读取数据
 df = pd.read_csv("wrds_data.csv")
 
-
-st.sidebar.header("Control Panel")
+# 侧边栏筛选
+st.sidebar.header("Filters")
 companies = st.sidebar.multiselect(
-    "Choose Companies",
+    "Select Companies",
     ["AAPL", "MSFT", "NVDA", "GOOGL"],
     default=["AAPL", "MSFT", "NVDA", "GOOGL"]
 )
+year_start, year_end = st.sidebar.slider("Year Range", 2020, 2024, (2020, 2024))
 
-year_min, year_max = st.sidebar.slider(
-    "Year Range",
-    2020, 2024, (2020, 2024)) )  
+# 筛选数据
+df_filtered = df[(df["tic"].isin(companies)) & (df["year"] >= year_start) & (df["year"] <= year_end)]
 
-show_roe = st.sidebar.checkbox("Show ROE", value=True)
-show_roa = st.sidebar.checkbox("Show ROA", value=False)
-show_pm = st.sidebar.checkbox("Show Profit Margin", value=False)
-show_lev = st.sidebar.checkbox("Show Leverage", value=False)
+# 数据预览
+st.subheader("Data Preview")
+st.dataframe(df_filtered.round(3))
 
+# 1. ROE 趋势图
+st.subheader("1. ROE Trend")
+fig1, ax1 = plt.subplots(figsize=(9, 3.5))
+for company in companies:
+    data = df_filtered[df_filtered["tic"] == company]
+    ax1.plot(data["year"], data["roe"], marker="o", label=company)
+ax1.legend()
+ax1.grid(True)
+st.pyplot(fig1)
 
-chart_style = st.sidebar.selectbox(
-    "Chart Line Style",
-    ["normal", "smooth", "step"]
-)
+# 2. 营收柱状图
+st.subheader("2. Annual Revenue")
+rev = df_filtered.pivot(index="year", columns="tic", values="sale")
+st.bar_chart(rev)
 
-# 数据筛选
-df = df[
-    (df["tic"].isin(companies)) &
-    (df["year"] >= year_min) &
-    (df["year"] <= year_max)
-]
+# 3. 净利率趋势
+st.subheader("3. Profit Margin Trend")
+fig3, ax3 = plt.subplots(figsize=(9, 3.5))
+for company in companies:
+    data = df_filtered[df_filtered["tic"] == company]
+    ax3.plot(data["year"], data["pm"], marker="s", label=company)
+ax3.legend()
+ax3.grid(True)
+st.pyplot(fig3)
 
-# 显示数据
-st.subheader(" Data Table (Filtered)")
-st.dataframe(df.round(3))
+# 4. 杠杆率面积图
+st.subheader("4. Leverage Level")
+lev = df_filtered.pivot(index="year", columns="tic", values="lev")
+st.area_chart(lev)
 
-
-if show_roe:
-    st.subheader("1. ROE Trend")
-    fig1, ax1 = plt.subplots(figsize=(9, 3.5))
-    for tic in companies:
-        sub = df[df["tic"] == tic]
-        if chart_style == "smooth":
-            ax1.plot(sub["year"], sub["roe"], marker="o", linestyle="--", label=tic)
-        elif chart_style == "step":
-            ax1.step(sub["year"], sub["roe"], where="mid", marker="o", label=tic)
-        else:
-            ax1.plot(sub["year"], sub["roe"], marker="o", label=tic)
-    ax1.legend()
-    ax1.grid(True)
-    st.pyplot(fig1)
-
-
-st.subheader("2. Revenue Comparison")
-rev_pivot = df.pivot(index="year", columns="tic", values="sale")
-st.bar_chart(rev_pivot)
-
-
-if show_pm:
-    st.subheader("3. Profit Margin Trend")
-    fig3, ax3 = plt.subplots(figsize=(9, 3.5))
-    for tic in companies:
-        sub = df[df["tic"] == tic]
-        ax3.plot(sub["year"], sub["pm"], marker="s", label=tic)
-    ax3.legend()
-    ax3.grid(True)
-    st.pyplot(fig3)
-
-
-if show_lev:
-    st.subheader("4. Leverage Level")
-    lev_pivot = df.pivot(index="year", columns="tic", values="lev")
-    st.area_chart(lev_pivot)
-
-
+# 5. 雷达图
 st.subheader("5. Financial Radar Chart (Latest Year)")
-latest = df[df["year"] == df["year"].max()].copy()
+latest_year = df_filtered["year"].max()
+latest_data = df_filtered[df_filtered["year"] == latest_year].copy()
 indicators = ["roe", "roa", "pm", "lev"]
 
-def radar(df_sub):
+def make_radar(data):
     angles = [i / len(indicators) * 2 * pi for i in range(len(indicators))]
     angles += angles[:1]
     fig, ax = plt.subplots(figsize=(6, 6), subplot_kw={"polar": True})
-    for _, row in df_sub.iterrows():
+    for _, row in data.iterrows():
         values = row[indicators].tolist()
         values += values[:1]
         ax.plot(angles, values, linewidth=2, label=row["tic"])
@@ -101,9 +78,7 @@ def radar(df_sub):
     ax.legend(loc="upper right")
     return fig
 
-if not latest.empty:
-    st.pyplot(radar(latest))
+if not latest_data.empty:
+    st.pyplot(make_radar(latest_data))
 else:
-    st.info("Select a valid year")
-
-st.success(" Data source: WRDS Compustat | Runs locally & online without issues")
+    st.info("Please select a valid year range.")
