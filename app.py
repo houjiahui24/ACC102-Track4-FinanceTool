@@ -20,7 +20,7 @@ companies = st.sidebar.multiselect(
 
 year_min, year_max = st.sidebar.slider(
     "Year Range",
-    2020, 2024, (2020, 2024)   
+    2020, 2024, (2020, 2024)) )  
 
 show_roe = st.sidebar.checkbox("Show ROE", value=True)
 show_roa = st.sidebar.checkbox("Show ROA", value=False)
