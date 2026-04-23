@@ -1,6 +1,3 @@
 pandas
-numpy
-matplotlib
 streamlit
-wrds
-sqlalchemy
+matplotlib
